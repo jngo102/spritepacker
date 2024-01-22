@@ -35,6 +35,8 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: Install Ubuntu dependencies
+        run: sudo apt-get install -y libgtk-3-dev
       - name: Build
         run: cargo build --release
       - name: Upload release asset Unix
@@ -53,7 +55,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ needs.create-release.outputs.RELEASE_UPLOAD_URL }}
           asset_path: target/release/spritepacker.exe
           asset_name: spritepacker_${{ matrix.platform }}.exe
           asset_content_type: application/octet-stream
