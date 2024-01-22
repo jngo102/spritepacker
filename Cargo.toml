@@ -1,0 +1,38 @@
+[package]
+name = "spritepacker"
+version = "0.1.0"
+description = "Packs sprites dumped by GODump into an atlas"
+authors = ["Jason Ngo <jngo102@aim.com>"]
+license = "MIT"
+repository = "https://github.com/jngo102/spritepacker"
+default-run = "spritepacker"
+edition = "2021"
+rust-version = "1.75"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+confy = "^0"
+eframe = { version = "^0", default-features = false, features = [
+    "default_fonts",
+    "glow",
+] }
+egui_extras = { version = "^0", default-features = false, features = [
+    "file",
+    "image",
+] }
+image = { version = "^0", default-features = false, features = ["png"] }
+log = "^0"
+notify = { version = "^5", default-features = false, features = [
+    "macos_kqueue",
+] }
+rayon = "^1"
+rfd = "^0"
+serde = { version = "^1", features = ["derive"] }
+serde_json = "^1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+strip = true
