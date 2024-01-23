@@ -12,7 +12,7 @@ use std::{
 };
 
 use eframe::{
-    egui::{self, Button, ProgressBar, ScrollArea, SelectableLabel},
+    egui::{self, Button, FontData, ProgressBar, ScrollArea, SelectableLabel, TextEdit},
     emath::Vec2b,
     epaint::Vec2,
     glow,
@@ -62,6 +62,10 @@ struct AppState {
     pub is_checking: bool,
     pub is_packing: bool,
     pub inspect_mode: InspectMode,
+
+    pub animations_filter: String,
+    pub clips_filter: String,
+    pub frames_filter: String,
 }
 
 pub struct App {
@@ -90,41 +94,6 @@ impl eframe::App for App {
         } else {
             egui::Visuals::light()
         });
-
-        match self.state.settings.language.as_str() {
-            "zh-CN" => {
-                let mut fonts = egui::FontDefinitions::default();
-
-                fonts.font_data.insert(
-                    "NotoSansSC".to_owned(),
-                    egui::FontData::from_static(include_bytes!("../../fonts/NotoSansSC.ttf")),
-                );
-
-                fonts
-                    .families
-                    .entry(egui::FontFamily::Proportional)
-                    .or_default()
-                    .insert(0, "NotoSansSC".to_owned());
-
-                ctx.set_fonts(fonts);
-            }
-            _ => {
-                let mut fonts = egui::FontDefinitions::default();
-
-                fonts.font_data.insert(
-                    "NotoSans".to_owned(),
-                    egui::FontData::from_static(include_bytes!("../../fonts/NotoSans.ttf")),
-                );
-
-                fonts
-                    .families
-                    .entry(egui::FontFamily::Proportional)
-                    .or_default()
-                    .insert(0, "NotoSans".to_owned());
-
-                ctx.set_fonts(fonts);
-            }
-        }
 
         egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, "topbar").show(ctx, |ui| {
             ui.heading(translate("Settings", self.state.settings.language.clone()));
@@ -177,7 +146,7 @@ impl eframe::App for App {
                         ui.selectable_value(
                             &mut self.state.settings.language,
                             "zh-CN".to_string(),
-                            "Chinese (Simplified)",
+                            "中文",
                         );
                     });
             });
@@ -189,9 +158,14 @@ impl eframe::App for App {
                     "Animations",
                     self.state.settings.language.clone(),
                 ));
+                let filter = TextEdit::singleline(&mut self.state.animations_filter);
+                ui.add_enabled(!self.state.is_packing && !self.state.is_checking, filter);
                 ui.separator();
                 egui::ScrollArea::new(Vec2b::new(false, true)).show(ui, |ui| {
                     for animation in self.state.loaded_animations.iter() {
+                        if !animation.name.contains(&self.state.animations_filter) {
+                            continue;
+                        }
                         let list_item = SelectableLabel::new(
                             self.state.current_animation == *animation,
                             animation.name.clone(),
@@ -211,9 +185,14 @@ impl eframe::App for App {
             .default_width(150.)
             .show(ctx, |ui| {
                 ui.heading(translate("Clips", self.state.settings.language.clone()));
+                let filter = TextEdit::singleline(&mut self.state.clips_filter);
+                ui.add_enabled(!self.state.is_packing && !self.state.is_checking, filter);
                 ui.separator();
                 egui::ScrollArea::new(Vec2b::new(false, true)).show(ui, |ui| {
                     for clip in self.state.current_animation.clips.iter() {
+                        if !clip.name.contains(&self.state.clips_filter) {
+                            continue;
+                        }
                         let list_item = SelectableLabel::new(
                             self.state.current_clip == *clip,
                             clip.name.clone(),
@@ -232,9 +211,14 @@ impl eframe::App for App {
             .default_width(150.)
             .show(ctx, |ui| {
                 ui.heading(translate("Frames", self.state.settings.language.clone()));
+                let filter = TextEdit::singleline(&mut self.state.frames_filter);
+                ui.add_enabled(!self.state.is_packing && !self.state.is_checking, filter);
                 ui.separator();
                 egui::ScrollArea::new(Vec2b::new(false, true)).show(ui, |ui| {
                     for frame in self.state.current_clip.frames.iter() {
+                        if !frame.name.contains(&self.state.frames_filter) {
+                            continue;
+                        }
                         let list_item = SelectableLabel::new(
                             self.state.current_frame == *frame,
                             frame.name.clone(),
@@ -364,6 +348,7 @@ impl eframe::App for App {
                         .clicked()
                     {
                         self.state.is_checking = true;
+                        self.state.changed_sprites = vec![];
                         let sprites_path = self.state.settings.sprites_path.clone();
                         let mut collections = self.state.loaded_collections.clone();
                         let (tx_sprite, rx_sprite) = mpsc::channel();
@@ -373,8 +358,10 @@ impl eframe::App for App {
                         });
                     }
                 } else {
+                    let button =
+                        Button::new(translate("Pack", self.state.settings.language.clone()));
                     if ui
-                        .button(translate("Pack", self.state.settings.language.clone()))
+                        .add_enabled(self.state.changed_sprites.len() <= 0, button)
                         .clicked()
                     {
                         self.state.can_pack = false;
@@ -384,12 +371,6 @@ impl eframe::App for App {
                     }
                 }
             } else {
-                if ui
-                    .button(translate("Cancel", self.state.settings.language.clone()))
-                    .clicked()
-                {
-                    self.cancel_pack();
-                }
                 self.poll_progress();
                 let progress_bar = ProgressBar::new(self.state.pack_progress)
                     .animate(true)
@@ -408,7 +389,7 @@ impl eframe::App for App {
 }
 
 impl App {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let mut app = App {
             state: AppState::default(),
             frame_timer: Some(Instant::now()),
@@ -457,7 +438,7 @@ impl App {
                 Ok(event) => match &event.kind {
                     EventKind::Modify(modify_kind) => match modify_kind {
                         ModifyKind::Metadata(_) => {
-                            println!("EVENT: {:?}", event);
+                            println!("Event: {:?}", event);
                             for path in &event.paths {
                                 let path = path
                                     .strip_prefix(sprites_path.clone())
@@ -523,22 +504,18 @@ impl App {
                     },
                     _ => {}
                 },
-                Err(e) => panic!("Failed to receive event: {}", e.to_string()),
+                Err(e) => panic!("Failed to receive event: {:?}", e),
             },
-            Err(e) => panic!("Watcher error: {}", e.to_string()),
+            Err(e) => panic!("Watcher error: {:?}", e),
         });
 
-        return app;
-    }
+        App::set_font(
+            &cc.egui_ctx,
+            egui::FontData::from_static(include_bytes!("../../fonts/NotoSansSC.ttf")),
+            "NotoSansSC".to_owned(),
+        );
 
-    /// Cancel the currently running pack task
-    fn cancel_pack(&mut self) {
-        self.state.is_packing = false;
-        if let Some(sender) = &self.progress_sender {
-            sender.send(-1.).expect("Failed to send cancel signal");
-        }
-        self.progress_sender = None;
-        self.progress_receiver = None;
+        return app;
     }
 
     /// Check whether any sprites and their duplicates are not identical.
@@ -565,9 +542,11 @@ impl App {
                         if !path2.exists() {
                             path2 = PathBuf::from(sprite.path.clone());
                         }
+
                         let image1 = image::open(path1.clone()).expect(
                             format!("Failed to open image at path {:?}", path1.display()).as_str(),
                         );
+
                         let image2 = image::open(path2.clone()).expect(
                             format!("Failed to open image at path {:?}", path2.display()).as_str(),
                         );
@@ -1127,6 +1106,24 @@ impl App {
                 }
             }
         }
+    }
+
+    /// Set the font of the application.
+    /// # Arguments
+    /// * `ctx` - The egui context
+    /// * `font_name` - The name of the font
+    fn set_font(ctx: &egui::Context, font_data: FontData, font_name: String) {
+        let mut fonts = egui::FontDefinitions::default();
+
+        fonts.font_data.insert(font_name.clone(), font_data);
+
+        fonts
+            .families
+            .entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(0, font_name);
+
+        ctx.set_fonts(fonts);
     }
 
     /// Check whether the UI should be enabled.

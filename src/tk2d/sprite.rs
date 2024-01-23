@@ -47,6 +47,7 @@ impl SpriteImage {
             );
             return false;
         }
+
         let result = Mutex::new(true);
         (0..frame1.width()).into_par_iter().try_for_each(|i| {
             (0..frame2.height()).into_par_iter().try_for_each(|j| {
