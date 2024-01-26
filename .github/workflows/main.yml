@@ -13,14 +13,13 @@ jobs:
         id: get_version
         run: echo "APP_VERSION=$(cat Cargo.toml | grep version | head -1 | cut -d' ' -f3 | tr -d '\"')" >> $GITHUB_OUTPUT
       - name: Get ChangeLog
-        id: get_changelog
         run: |
           VERSIONS=$(grep "^## \[.*]" ChangeLog.md)
           FIRST_TWO=$(echo "$VERSIONS" | head -2)
           START=$(echo "$FIRST_TWO" | head -1 | sed -e 's/[]\/$*.^[]/\\&/g')
           END=$(echo "$FIRST_TWO" | tail -1 | sed -e 's/[]\/$*.^[]/\\&/g')
           BODY=$(sed -n -r "/$START/,/$END/p" ChangeLog.md | head -n -1)
-          echo "CHANGELOG=$BODY" >> $GITHUB_OUTPUT
+          echo "$BODY" > changelog.txt
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
@@ -30,7 +29,7 @@ jobs:
           tag_name: ${{ steps.get_version.outputs.APP_VERSION }}
           release_name: "Sprite Packer v${{ steps.get_version.outputs.APP_VERSION }}"
           body: |
-            ${{ steps.get_changelog.outputs.CHANGELOG }}
+            echo $(cat changelog.txt)
           draft: false
           prerelease: false
   build:
