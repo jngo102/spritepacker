@@ -163,7 +163,11 @@ impl eframe::App for App {
                 ui.separator();
                 egui::ScrollArea::new(Vec2b::new(false, true)).show(ui, |ui| {
                     for animation in self.state.loaded_animations.iter() {
-                        if !animation.name.contains(&self.state.animations_filter) {
+                        if !animation
+                            .name
+                            .to_lowercase()
+                            .contains(&self.state.animations_filter.to_lowercase())
+                        {
                             continue;
                         }
                         let list_item = SelectableLabel::new(
@@ -190,7 +194,11 @@ impl eframe::App for App {
                 ui.separator();
                 egui::ScrollArea::new(Vec2b::new(false, true)).show(ui, |ui| {
                     for clip in self.state.current_animation.clips.iter() {
-                        if !clip.name.contains(&self.state.clips_filter) {
+                        if !clip
+                            .name
+                            .to_lowercase()
+                            .contains(&self.state.clips_filter.to_lowercase())
+                        {
                             continue;
                         }
                         let list_item = SelectableLabel::new(
@@ -216,7 +224,11 @@ impl eframe::App for App {
                 ui.separator();
                 egui::ScrollArea::new(Vec2b::new(false, true)).show(ui, |ui| {
                     for frame in self.state.current_clip.frames.iter() {
-                        if !frame.name.contains(&self.state.frames_filter) {
+                        if !frame
+                            .name
+                            .to_lowercase()
+                            .contains(&self.state.frames_filter.to_lowercase())
+                        {
                             continue;
                         }
                         let list_item = SelectableLabel::new(
@@ -243,40 +255,51 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 ui.heading(translate("Changed", self.state.settings.language.clone()));
                 ui.separator();
-                egui::ScrollArea::new(Vec2b::new(false, true)).show(ui, |ui| {
-                    for sprite in self.state.changed_sprites.iter() {
-                        let list_item = SelectableLabel::new(
-                            self.state.current_frame == *sprite,
-                            sprite.name.clone(),
-                        );
-                        if ui.add_enabled(self.ui_enabled(), list_item).clicked() {
-                            self.frame_timer = None;
-                            self.state.inspect_mode = InspectMode::Backup;
-                            let collection = self.get_collection(sprite.collection_name.clone());
-                            self.state.current_collection = collection.clone();
-                            let animation = self.get_animation_from_collection_name(collection);
-                            self.state.current_animation = animation.clone();
-                            let clip = animation
-                                .clips
-                                .par_iter()
-                                .find_first(|clip| {
-                                    clip.frames
-                                        .par_iter()
-                                        .find_first(|frame| frame.name == sprite.name)
-                                        .is_some()
-                                })
-                                .expect("Failed to find clip from sprite")
-                                .clone();
-                            self.state.current_clip = clip.clone();
-                            self.state.current_frame = clip
-                                .frames
-                                .par_iter()
-                                .find_first(|frame| frame.name == sprite.name)
-                                .expect("Failed to find frame from sprite")
-                                .clone();
+                egui::ScrollArea::new(Vec2b::new(false, true))
+                    .max_height(ui.available_height() - 64.)
+                    .show(ui, |ui| {
+                        for sprite in self.state.changed_sprites.iter() {
+                            let list_item = SelectableLabel::new(
+                                self.state.current_frame == *sprite,
+                                sprite.name.clone(),
+                            );
+                            if ui.add_enabled(self.ui_enabled(), list_item).clicked() {
+                                self.frame_timer = None;
+                                self.state.inspect_mode = InspectMode::Backup;
+                                let collection =
+                                    self.get_collection(sprite.collection_name.clone());
+                                self.state.current_collection = collection.clone();
+                                let animation = self.get_animation_from_collection_name(collection);
+                                self.state.current_animation = animation.clone();
+                                let clip = animation
+                                    .clips
+                                    .par_iter()
+                                    .find_first(|clip| {
+                                        clip.frames
+                                            .par_iter()
+                                            .find_first(|frame| frame.name == sprite.name)
+                                            .is_some()
+                                    })
+                                    .expect("Failed to find clip from sprite")
+                                    .clone();
+                                self.state.current_clip = clip.clone();
+                                self.state.current_frame = clip
+                                    .frames
+                                    .par_iter()
+                                    .find_first(|frame| frame.name == sprite.name)
+                                    .expect("Failed to find frame from sprite")
+                                    .clone();
+                            }
                         }
-                    }
-                });
+                    });
+                let button =
+                    egui::Button::new(translate("Replace", self.state.settings.language.clone()));
+                if ui
+                    .add_enabled(self.state.changed_sprites.len() > 0, button)
+                    .clicked()
+                {
+                    self.replace_duplicate_sprites(self.state.current_frame.clone());
+                }
             });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(translate("Inspector", self.state.settings.language.clone()));
@@ -948,6 +971,10 @@ impl App {
             }
         }
 
+        self.state
+            .changed_sprites
+            .retain(|sprite| sprite.id != source_sprite.id);
+
         self.watcher
             .as_mut()
             .expect("Failed to unwrap watcher")
@@ -975,7 +1002,7 @@ impl App {
         });
     }
 
-    /// Packs a collection of sprites into an atlas.
+    /// Pack a collection of sprites into an atlas.
     /// # Arguments
     /// * `collection` - The collection to pack
     /// * `sprites_path` - The path to the sprites folder

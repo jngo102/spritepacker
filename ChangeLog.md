@@ -1,5 +1,15 @@
 # Sprite Packer Changelog
 
+## [0.1.2] - 2024-01-25
+
+### Added
+
+- Replacing duplicate sprites functionality
+
+### Changed
+
+- Filters are now case-insensitive
+
 ## [0.1.1] - 2024-01-22
 
 ### Added

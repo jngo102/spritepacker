@@ -14,9 +14,9 @@ jobs:
       - name: Get ChangeLog
         run: |
           VERSIONS=$(grep "^## \[.*]" ChangeLog.md)
-          FIRST_TWO=$(echo "VERSIONS" | head -2)
-          START=$(cat tmp.txt | head -1 | sed -e 's/[]\/$*.^[]/\\&/g')
-          END=$(cat tmp.txt | tail -1 | sed -e 's/[]\/$*.^[]/\\&/g')
+          FIRST_TWO=$(echo "$VERSIONS" | head -2)
+          START=$(echo "$FIRST_TWO" | head -1 | sed -e 's/[]\/$*.^[]/\\&/g')
+          END=$(echo "$FIRST_TWO" | tail -1 | sed -e 's/[]\/$*.^[]/\\&/g')
           BODY=$(sed -n -r "/$START/,/$END/p" ChangeLog.md | head -n -1)
           echo "CHANGELOG=$BODY" >> $GITHUB_ENV
       - name: Create release
