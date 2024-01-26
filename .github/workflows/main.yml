@@ -18,9 +18,7 @@ jobs:
           START=$(echo "$FIRST_TWO" | head -1 | sed -e 's/[]\/$*.^[]/\\&/g')
           END=$(echo "$FIRST_TWO" | tail -1 | sed -e 's/[]\/$*.^[]/\\&/g')
           BODY=$(sed -n -r "/$START/,/$END/p" ChangeLog.md | head -n -1)
-          echo 'CHANGELOG << EOF' >> $GITHUB_ENV
-          echo "$BODY" >> $GITHUB_ENV
-          echo EOF >> $GITHUB_ENV
+          echo "$BODY" > changelog.txt
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
@@ -29,7 +27,8 @@ jobs:
         with:
           tag_name: ${{ env.APP_VERSION }}
           release_name: "Sprite Packer v${{ env.APP_VERSION }}"
-          body: ${{ env.CHANGELOG }}
+          body: |
+            cat changelog.txt
           draft: false
           prerelease: false
   build:
