@@ -19,9 +19,9 @@ jobs:
           END=$(echo "$FIRST_TWO" | tail -1 | sed -e 's/[]\/$*.^[]/\\&/g')
           BODY=$(sed -n -r "/$START/,/$END/p" ChangeLog.md | head -n -1)
           {
-            CHANGELOG << EOF
-            "$BODY"
-            EOF
+            echo CHANGELOG << EOF
+            echo "$BODY"
+            echo EOF
           } >> $GITHUB_ENV
       - name: Create release
         id: create_release
